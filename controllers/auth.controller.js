@@ -87,9 +87,15 @@ exports.createUser = async (req, res) => {
 
 exports.loginUser = async (req, res) => {
   try {
-    let { email, password } = req.body;
+    let { email, password, cell } = req.body;
 
-    const user = await authModel.checkExisitingUser(email);
+    let user = null;
+
+    if (email) {
+      user = await authModel.checkExisitingUser(email);
+    } else if (cell) {
+      user = await authModel.checkExisitingUserMobile(cell);
+    }
 
     if (!user) {
       return res.status(400).json({
@@ -316,7 +322,7 @@ exports.loginPhoneVerify = async (req, res) => {
     }
 
     // 2. Fetch the user (so you can issue JWT with userId/email just like normal login)
-    const user = await authModel.checkExisitingUser(PhoneNumber);
+    const user = await authModel.checkExisitingUserMobile(PhoneNumber);
 
     if (!user) {
       return res.status(400).json({
@@ -392,8 +398,7 @@ exports.verifyOtp = async (req, res) => {
     // Detect type
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
     // const isPhone = /^[0-9]{7,15}$/.test(identifier);
-    const isPhone = /^\+[1-9]\d{7,14}$/.test(identifier); 
-
+    const isPhone = /^\+[1-9]\d{7,14}$/.test(identifier);
 
     if (!isEmail && !isPhone) {
       return res
