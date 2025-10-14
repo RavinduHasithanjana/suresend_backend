@@ -159,11 +159,30 @@ exports.sendOtpEmail = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    let email = req.body.email;
-    const otpResponse = await OTPEMailService.sendOtp(email);
+    const { email, cell } = req.body;
+
+    // Validate inputs
+    if (!email && !cell) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide either an email or a mobile number.",
+      });
+    }
+
+    let otpResponse;
+
+    // If email is provided, send email OTP
+    if (email) {
+      otpResponse = await OTPEMailService.sendOtp(email);
+    }
+    // If cell is provided, send SMS OTP
+    else if (cell) {
+      otpResponse = await OTPMobileService.sendOtp(cell);
+    }
+
     res.status(200).json({
       success: true,
-      data: otpResponse.message,
+      data: otpResponse.message || "OTP Sent",
     });
   } catch (error) {
     console.log(error);
@@ -176,18 +195,31 @@ exports.forgotPassword = async (req, res) => {
 
 exports.verifyForgotPassword = async (req, res) => {
   try {
-    let { email, otp } = req.body;
-    console.log("Request:", { email, otp });
+    let { email, otp, cell } = req.body;
+    console.log("Request:", { email, otp, cell });
 
-    // 1. Verify OTP
-    const otpResponse = await OTPEMailService.verifyOtp(email, otp);
-    if (!otpResponse.success) {
+    if (!otp || (!email && !cell)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide OTP and either email or mobile number.",
+      });
+    }
+
+    let otpResponse;
+
+    if (email) {
+      otpResponse = await OTPEMailService.verifyOtp(email, otp);
+    } else if (cell) {
+      otpResponse = await OTPMobileService.verifyOtp(cell, otp);
+    }
+
+    if (!otpResponse || !otpResponse.success) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
       });
     }
-    // 2. successful response
+
     return res.status(200).json({
       success: true,
       message: "OTP verified successfully",
@@ -203,8 +235,8 @@ exports.verifyForgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    let { email, password } = req.body;
-    console.log("Request:", { email, password });
+    let { email, password, cell } = req.body;
+    console.log("Request:", { email, password, cell });
 
     // // 1. Verify OTP
     // const otpResponse = await OTPEMailService.verifyOtp(email, otp);
@@ -215,8 +247,15 @@ exports.resetPassword = async (req, res) => {
     //   });
     // }
 
+    let user;
+    if (email) {
+      user = await authModel.checkExisitingUser(email);
+    } else if (cell) {
+      user = await authModel.checkExisitingUserMobile(cell);
+    }
+
     // 2. Find user
-    const user = await authModel.findOneEmail(email);
+    //const user = await authModel.findOneEmail(email);
     if (!user) {
       return res.status(404).json({
         success: false,
